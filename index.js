@@ -66,18 +66,15 @@ async function generatePDF(invoiceData) {
 // Основной endpoint для генерации инвойса
 app.post('/generate-invoice', async (req, res) => {
     try {
-        console.log('Получен запрос:', req.body);
+        console.log('Generate invoice request:', req.body);
         const { invoiceData, chatId, payment_status } = req.body;
         
-        // Проверяем статус оплаты
         if (payment_status !== 'paid') {
             return res.status(402).json({ success: false, error: 'Payment required' });
         }
         
-        // Генерируем PDF
         const pdfBuffer = await generatePDF(invoiceData);
-
-        // Отправляем через телеграм
+        
         await bot.sendDocument(chatId, pdfBuffer, {
             filename: 'invoice.pdf',
             caption: 'Here is your generated invoice!'
@@ -85,7 +82,7 @@ app.post('/generate-invoice', async (req, res) => {
 
         res.json({ success: true, message: 'Invoice generated and sent successfully' });
     } catch (error) {
-        console.error('Error:', error);
+        console.error('Error generating invoice:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -98,7 +95,8 @@ app.get('/', (req, res) => {
 // Добавьте этот новый endpoint для создания инвойса
 app.post('/create-invoice', async (req, res) => {
     try {
-        console.log('Creating invoice...');
+        const { chatId } = req.body;
+        console.log('Creating invoice for chat ID:', chatId);
         
         const invoiceLink = await bot.createInvoiceLink(
             'Generate Invoice PDF',
@@ -108,7 +106,7 @@ app.post('/create-invoice', async (req, res) => {
             'XTR',
             [{
                 label: 'Invoice Generation',
-                amount: 1
+                amount: 100
             }],
             {
                 need_name: false,
@@ -118,20 +116,23 @@ app.post('/create-invoice', async (req, res) => {
                 send_phone_number_to_provider: false,
                 send_email_to_provider: false,
                 is_flexible: false,
-                max_tip_amount: 0,
-                suggested_tip_amounts: [],
-                protect_content: true,
-                send_payment_form: true // Добавили этот параметр
+                protect_content: true
             }
         );
 
-        console.log('Invoice link created:', invoiceLink);
+        console.log('Created invoice link:', invoiceLink);
         res.json({ success: true, invoice_url: invoiceLink });
     } catch (error) {
-        console.error('Error creating invoice link:', error);
-        res.status(500).json({ success: false, error: error.message });
+        console.error('Error creating invoice:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: error.message,
+            stack: error.stack
+        });
     }
 });
+
+
 
 // Добавим обработчик событий от Telegram
 app.post('/webhook', express.json(), async (req, res) => {
