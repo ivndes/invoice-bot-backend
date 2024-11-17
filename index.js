@@ -48,13 +48,15 @@ async function generatePDF(invoiceData) {
         doc.moveDown()
            .text('Items:', { underline: true });
         
+        let total = 0;
         invoiceData.items.forEach(item => {
-            doc.text(`${item.description} - $${item.amount}`);
+            doc.text(`${item.description}`);
+            doc.text(`   Hours: ${item.amount} × Price per hour: $${item.price} = $${item.total}`, { indent: 20 });
+            total += item.total;
         });
 
         // Итоговая сумма
         doc.moveDown();
-        const total = invoiceData.items.reduce((sum, item) => sum + parseFloat(item.amount), 0);
         doc.fontSize(16).text(`Total: $${total.toFixed(2)}`, { align: 'right' });
 
         doc.end();
