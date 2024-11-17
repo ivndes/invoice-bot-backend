@@ -111,7 +111,7 @@ app.post('/create-invoice', async (req, res) => {
             start_parameter: 'invoice_gen',
             prices: [{
                 label: 'Invoice Generation',
-                amount: 100 // 1 звезда = 100 единиц
+                amount: 1 // 1 звезда = 100 единиц
             }]
         };
         
