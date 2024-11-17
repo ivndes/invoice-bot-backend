@@ -99,6 +99,7 @@ app.get('/', (req, res) => {
 app.post('/create-invoice', async (req, res) => {
     try {
         const { chatId } = req.body;
+        console.log('Creating invoice for chatId:', chatId);
         
         const invoice = {
             chat_id: chatId,
@@ -110,13 +111,19 @@ app.post('/create-invoice', async (req, res) => {
             prices: [{
                 label: 'Invoice Generation',
                 amount: 100 // 1 звезда = 100 единиц
-            }]
+            }],
+            start_parameter: 'invoice_gen'
         };
+        
+        console.log('Sending invoice to Telegram:', invoice);
 
         const result = await bot.sendInvoice(invoice);
+        console.log('Telegram response:', result);
+        
         res.json({ success: true, invoice_message_id: result.message_id });
     } catch (error) {
-        console.error('Error creating invoice:', error);
+        console.error('Detailed error:', error);
+        console.error('Error creating invoice:', error.message);
         res.status(500).json({ success: false, error: error.message });
     }
 });
