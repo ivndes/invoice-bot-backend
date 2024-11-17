@@ -98,41 +98,31 @@ app.get('/', (req, res) => {
 // Добавьте этот новый endpoint для создания инвойса
 app.post('/create-invoice', async (req, res) => {
     try {
-        const { chatId } = req.body;
-        console.log('Creating invoice for chatId:', chatId);
-        
-        const invoice = {
-            chat_id: chatId, // ID чата
-            title: 'Generate Invoice PDF', // Название товара/услуги
-            description: 'Generate a professional PDF invoice with your data',
-            payload: `invoice_${Date.now()}`,
-            provider_token: '', // Оставляем пустым для цифровых товаров
-            currency: 'XTR',
-            start_parameter: 'invoice_gen',
-            prices: [{
+        const invoiceLink = await bot.createInvoiceLink(
+            'Generate Invoice PDF',
+            'Generate a professional PDF invoice with your data',
+            `invoice_${Date.now()}`,
+            '', // provider_token пустой для цифровых товаров
+            'XTR',
+            [{
                 label: 'Invoice Generation',
-                amount: 1 // 1 звезда = 100 единиц
-            }]
-        };
-        
-        console.log('Sending invoice to Telegram:', invoice);
-        
-        // Важно: все параметры должны быть отдельными аргументами
-        const result = await bot.sendInvoice(
-            invoice.chat_id,
-            invoice.title,
-            invoice.description,
-            invoice.payload,
-            invoice.provider_token,
-            invoice.currency,
-            invoice.prices,
+                amount: 1
+            }],
             {
-                start_parameter: invoice.start_parameter
+                max_tip_amount: 0,
+                suggested_tip_amounts: [],
+                need_name: false,
+                need_phone_number: false,
+                need_email: false,
+                need_shipping_address: false,
+                send_phone_number_to_provider: false,
+                send_email_to_provider: false,
+                is_flexible: false,
+                protect_content: true
             }
         );
 
-        console.log('Telegram response:', result);
-        res.json({ success: true, invoice_message_id: result.message_id });
+        res.json({ success: true, invoice_url: invoiceLink });
     } catch (error) {
         console.error('Detailed error:', error);
         res.status(500).json({ success: false, error: error.message });
