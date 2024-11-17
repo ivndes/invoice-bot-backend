@@ -7,18 +7,15 @@ const TelegramBot = require('node-telegram-bot-api');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Инициализация бота
+// Инициализация бота (убираем настройку порта из конфигурации вебхука)
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { 
-    polling: false,
-    webHook: {
-        port: port
-    }
+    polling: false
 });
 
+// Устанавливаем вебхук после запуска сервера
 const url = 'https://invoice-bot-backend.onrender.com';
-bot.setWebHook(`${url}/webhook/${process.env.TELEGRAM_BOT_TOKEN}`);
 
-// Обновленные CORS настройки
+// CORS и другие middleware
 app.use(cors({
     origin: 'https://ivndes.github.io',
     methods: ['GET', 'POST'],
@@ -26,6 +23,19 @@ app.use(cors({
 }));
 
 app.use(express.json());
+
+// Перемещаем установку вебхука в callback функцию app.listen
+app.listen(port, async () => {
+    console.log(`Server running on port ${port}`);
+    try {
+        // Устанавливаем вебхук после запуска сервера
+        const webhookUrl = `${url}/webhook/${process.env.TELEGRAM_BOT_TOKEN}`;
+        const result = await bot.setWebHook(webhookUrl);
+        console.log('Webhook set:', result);
+    } catch (error) {
+        console.error('Error setting webhook:', error);
+    }
+});
 
 // Функция генерации PDF
 async function generatePDF(invoiceData) {
