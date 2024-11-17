@@ -11,7 +11,11 @@ const port = process.env.PORT || 3000;
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: false });
 
 // Middleware
-app.use(cors());
+app.use(cors({
+    origin: 'https://ivndes.github.io',
+    methods: ['GET', 'POST'],
+    credentials: true
+}));
 app.use(express.json());
 
 // Функция генерации PDF
