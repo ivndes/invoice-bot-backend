@@ -66,8 +66,13 @@ async function generatePDF(invoiceData) {
 // Основной endpoint для генерации инвойса
 app.post('/generate-invoice', async (req, res) => {
     try {
-        console.log('Получен запрос:', req.body); // Для отладки
-        const { invoiceData, chatId } = req.body;
+        console.log('Получен запрос:', req.body);
+        const { invoiceData, chatId, payment_status } = req.body;
+        
+        // Проверяем статус оплаты
+        if (payment_status !== 'paid') {
+            return res.status(402).json({ success: false, error: 'Payment required' });
+        }
         
         // Генерируем PDF
         const pdfBuffer = await generatePDF(invoiceData);
@@ -88,6 +93,32 @@ app.post('/generate-invoice', async (req, res) => {
 // Проверка работоспособности сервера
 app.get('/', (req, res) => {
     res.json({ status: 'Server is running' });
+});
+
+// Добавьте этот новый endpoint для создания инвойса
+app.post('/create-invoice', async (req, res) => {
+    try {
+        const { chatId } = req.body;
+        
+        const invoice = {
+            chat_id: chatId,
+            title: "Generate Invoice PDF",
+            description: "Generate a professional PDF invoice with your data",
+            payload: `invoice_${Date.now()}`,
+            provider_token: '', // Оставляем пустым для цифровых товаров
+            currency: 'XTR',
+            prices: [{
+                label: 'Invoice Generation',
+                amount: 100 // 1 звезда = 100 единиц
+            }]
+        };
+
+        const result = await bot.sendInvoice(invoice);
+        res.json({ success: true, invoice_message_id: result.message_id });
+    } catch (error) {
+        console.error('Error creating invoice:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
 });
 
 app.listen(port, () => {
