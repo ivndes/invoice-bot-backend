@@ -121,6 +121,18 @@ app.post('/create-invoice', async (req, res) => {
     }
 });
 
+// Обработчик pre-checkout запроса
+app.post('/pre-checkout', async (req, res) => {
+    try {
+        const { preCheckoutQueryId } = req.body;
+        await bot.answerPreCheckoutQuery(preCheckoutQueryId, true);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error in pre-checkout:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 app.listen(port, () => {
     console.log(`Server running on port ${port}`);
 });
