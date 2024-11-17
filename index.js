@@ -51,7 +51,7 @@ async function generatePDF(invoiceData) {
         let total = 0;
         invoiceData.items.forEach(item => {
             doc.text(`${item.description}`);
-            doc.text(`   Hours: ${item.amount} × Price per hour: $${item.price} = $${item.total}`, { indent: 20 });
+            doc.text(`   Amount: ${item.amount} × Price: $${item.price} = $${item.total}`, { indent: 20 });
             total += item.total;
         });
 
