@@ -97,7 +97,7 @@ app.post('/create-invoice', async (req, res) => {
             'XTR',
             [{
                 label: 'Invoice Generation',
-                amount: 100
+                amount: 1
             }],
             {
                 need_name: false,
