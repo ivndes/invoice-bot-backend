@@ -102,28 +102,39 @@ app.post('/create-invoice', async (req, res) => {
         console.log('Creating invoice for chatId:', chatId);
         
         const invoice = {
-            chat_id: chatId,
-            title: "Generate Invoice PDF",
-            description: "Generate a professional PDF invoice with your data",
+            chat_id: chatId, // ID чата
+            title: 'Generate Invoice PDF', // Название товара/услуги
+            description: 'Generate a professional PDF invoice with your data',
             payload: `invoice_${Date.now()}`,
             provider_token: '', // Оставляем пустым для цифровых товаров
             currency: 'XTR',
+            start_parameter: 'invoice_gen',
             prices: [{
                 label: 'Invoice Generation',
                 amount: 100 // 1 звезда = 100 единиц
-            }],
-            start_parameter: 'invoice_gen'
+            }]
         };
         
         console.log('Sending invoice to Telegram:', invoice);
-
-        const result = await bot.sendInvoice(invoice);
-        console.log('Telegram response:', result);
         
+        // Важно: все параметры должны быть отдельными аргументами
+        const result = await bot.sendInvoice(
+            invoice.chat_id,
+            invoice.title,
+            invoice.description,
+            invoice.payload,
+            invoice.provider_token,
+            invoice.currency,
+            invoice.prices,
+            {
+                start_parameter: invoice.start_parameter
+            }
+        );
+
+        console.log('Telegram response:', result);
         res.json({ success: true, invoice_message_id: result.message_id });
     } catch (error) {
         console.error('Detailed error:', error);
-        console.error('Error creating invoice:', error.message);
         res.status(500).json({ success: false, error: error.message });
     }
 });
