@@ -98,6 +98,8 @@ app.get('/', (req, res) => {
 // Добавьте этот новый endpoint для создания инвойса
 app.post('/create-invoice', async (req, res) => {
     try {
+        console.log('Creating invoice...');
+        
         const invoiceLink = await bot.createInvoiceLink(
             'Generate Invoice PDF',
             'Generate a professional PDF invoice with your data',
@@ -106,7 +108,7 @@ app.post('/create-invoice', async (req, res) => {
             'XTR',
             [{
                 label: 'Invoice Generation',
-                amount: 1
+                amount: 100
             }],
             {
                 need_name: false,
@@ -118,14 +120,42 @@ app.post('/create-invoice', async (req, res) => {
                 is_flexible: false,
                 max_tip_amount: 0,
                 suggested_tip_amounts: [],
-                protect_content: true
+                protect_content: true,
+                send_payment_form: true // Добавили этот параметр
             }
         );
 
+        console.log('Invoice link created:', invoiceLink);
         res.json({ success: true, invoice_url: invoiceLink });
     } catch (error) {
         console.error('Error creating invoice link:', error);
         res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Добавим обработчик событий от Telegram
+app.post('/webhook', express.json(), async (req, res) => {
+    console.log('Webhook received:', req.body);
+    
+    try {
+        const update = req.body;
+        
+        // Обработка pre_checkout_query
+        if (update.pre_checkout_query) {
+            console.log('Pre-checkout query received:', update.pre_checkout_query);
+            await bot.answerPreCheckoutQuery(update.pre_checkout_query.id, true);
+        }
+        
+        // Обработка successful_payment
+        if (update.message && update.message.successful_payment) {
+            console.log('Successful payment received:', update.message.successful_payment);
+            // Здесь можно добавить дополнительную логику
+        }
+        
+        res.json({ ok: true });
+    } catch (error) {
+        console.error('Webhook error:', error);
+        res.status(500).json({ ok: false, error: error.message });
     }
 });
 
