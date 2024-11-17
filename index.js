@@ -10,12 +10,13 @@ const port = process.env.PORT || 3000;
 // Инициализация бота
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: false });
 
-// Middleware
+// Обновленные CORS настройки
 app.use(cors({
     origin: 'https://ivndes.github.io',
     methods: ['GET', 'POST'],
     credentials: true
 }));
+
 app.use(express.json());
 
 // Функция генерации PDF
@@ -30,16 +31,22 @@ async function generatePDF(invoiceData) {
         // Добавляем содержимое в PDF
         doc.fontSize(25).text('Invoice', { align: 'center' });
         
-        // Информация о клиенте
+        // Информация о вас
         doc.moveDown();
         doc.fontSize(14)
-           .text('Client Information', { underline: true })
-           .text(`Name: ${invoiceData.clientName}`)
-           .text(`Email: ${invoiceData.clientEmail || 'N/A'}`);
+           .text('From:', { underline: true })
+           .text(`Name: ${invoiceData.yourInfo.name}`)
+           .text(`Email: ${invoiceData.yourInfo.email}`);
+
+        // Информация о клиенте
+        doc.moveDown()
+           .text('To:', { underline: true })
+           .text(`Name: ${invoiceData.clientInfo.name}`)
+           .text(`Email: ${invoiceData.clientInfo.email}`);
 
         // Информация о товарах
         doc.moveDown()
-           .text('Items', { underline: true });
+           .text('Items:', { underline: true });
         
         invoiceData.items.forEach(item => {
             doc.text(`${item.description} - $${item.amount}`);
@@ -48,7 +55,7 @@ async function generatePDF(invoiceData) {
         // Итоговая сумма
         doc.moveDown();
         const total = invoiceData.items.reduce((sum, item) => sum + parseFloat(item.amount), 0);
-        doc.fontSize(16).text(`Total: $${total}`, { align: 'right' });
+        doc.fontSize(16).text(`Total: $${total.toFixed(2)}`, { align: 'right' });
 
         doc.end();
     });
@@ -57,6 +64,7 @@ async function generatePDF(invoiceData) {
 // Основной endpoint для генерации инвойса
 app.post('/generate-invoice', async (req, res) => {
     try {
+        console.log('Получен запрос:', req.body); // Для отладки
         const { invoiceData, chatId } = req.body;
         
         // Генерируем PDF
