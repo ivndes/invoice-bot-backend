@@ -106,11 +106,9 @@ app.post('/create-invoice', async (req, res) => {
             'XTR',
             [{
                 label: 'Invoice Generation',
-                amount: 1
+                amount: 100
             }],
             {
-                max_tip_amount: 0,
-                suggested_tip_amounts: [],
                 need_name: false,
                 need_phone_number: false,
                 need_email: false,
@@ -118,13 +116,15 @@ app.post('/create-invoice', async (req, res) => {
                 send_phone_number_to_provider: false,
                 send_email_to_provider: false,
                 is_flexible: false,
+                max_tip_amount: 0,
+                suggested_tip_amounts: [],
                 protect_content: true
             }
         );
 
         res.json({ success: true, invoice_url: invoiceLink });
     } catch (error) {
-        console.error('Detailed error:', error);
+        console.error('Error creating invoice link:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -132,11 +132,30 @@ app.post('/create-invoice', async (req, res) => {
 // Обработчик pre-checkout запроса
 app.post('/pre-checkout', async (req, res) => {
     try {
-        const { preCheckoutQueryId } = req.body;
-        await bot.answerPreCheckoutQuery(preCheckoutQueryId, true);
+        console.log('Pre-checkout request:', req.body);
+        const { pre_checkout_query_id } = req.body;
+        
+        // Подтверждаем, что можем предоставить услугу
+        await bot.answerPreCheckoutQuery(pre_checkout_query_id, true);
+        
         res.json({ success: true });
     } catch (error) {
-        console.error('Error in pre-checkout:', error);
+        console.error('Pre-checkout error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.post('/payment-successful', async (req, res) => {
+    try {
+        console.log('Payment successful:', req.body);
+        const { successful_payment } = req.body;
+        
+        // Здесь можно добавить дополнительную логику
+        // Например, сохранение информации о платеже
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Payment processing error:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
