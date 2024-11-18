@@ -32,9 +32,8 @@ async function generatePDF(invoiceData) {
             info: {
                 Title: 'Invoice',
                 Author: 'Invoice Generator Bot',
-                Creator: '@makeinvoicesbot', // Замените на username вашего бота
-                Producer: 'https://t.me/makeinvoicesbot', // Замените на ссылку на вашего бота
-                Keywords: 'invoice, telegram, bot'
+                Creator: '@makeinvoicesbot',
+                Producer: 'https://t.me/makeinvoicesbot'
             }
         });
 
@@ -43,73 +42,87 @@ async function generatePDF(invoiceData) {
         doc.on('end', () => resolve(Buffer.concat(chunks)));
 
         // Heading
-        doc.fontSize(24)
+        doc.fontSize(36)
            .font('Helvetica-Bold')
-           .text('INVOICE', { align: 'center' });
-
-        doc.moveDown(2);
-
-        // From section
-        doc.fontSize(12)
+           .text('INVOICE', 50, 50)
+           .fontSize(12)
            .font('Helvetica')
-           .text('FROM:', { underline: true })
-           .font('Helvetica-Bold')
-           .text(invoiceData.yourInfo.name)
-           .font('Helvetica')
-           .text(invoiceData.yourInfo.email);
+           .text(invoiceData.yourInfo.name, 450, 50)
+           .text(invoiceData.yourInfo.email, 450, 65);
 
-        doc.moveDown(2);
+        // Separator line
+        doc.moveTo(50, 100)
+           .lineTo(550, 100)
+           .stroke();
 
         // Bill To section
-        doc.fontSize(12)
-           .font('Helvetica')
-           .text('BILL TO:', { underline: true })
+        doc.moveDown(2)
+           .fontSize(10)
+           .text('BILL TO', 50, 120)
+           .fontSize(16)
            .font('Helvetica-Bold')
-           .text(invoiceData.clientInfo.name)
+           .text(invoiceData.clientInfo.name, 50, 140)
+           .fontSize(12)
            .font('Helvetica')
-           .text(invoiceData.clientInfo.email);
+           .text(invoiceData.clientInfo.email, 50, 160);
 
-        doc.moveDown(2);
+        // Amount section
+        doc.fontSize(10)
+           .text('AMOUNT DUE', 450, 120)
+           .fontSize(16)
+           .fillColor('#ff4500')  // Оранжевый цвет для суммы
+           .text(`$${calculateTotal(invoiceData.items).toFixed(2)} (Total amount)`, 450, 140)
+           .fillColor('#000000')  // Возвращаем черный цвет
+           .fontSize(12)
+           .text(`Issued on: ${new Date().toLocaleDateString()}`, 450, 160);
 
-        // Current date
-        doc.text(`Issued on: ${new Date().toLocaleDateString()}`, { align: 'right' });
+        // Table header
+        const tableTop = 250;
+        doc.fontSize(10)
+           .text('DESCRIPTION OF ITEM', 50, tableTop)
+           .text('RATE', 350, tableTop)
+           .text('QTY', 420, tableTop)
+           .text('AMOUNT', 480, tableTop);
 
-        doc.moveDown();
-
-        // Items table header
-        const tableTop = doc.y + 20;
-        doc.font('Helvetica-Bold')
-           .text('DESCRIPTION', 50, tableTop)
-           .text('RATE', 280, tableTop)
-           .text('QTY', 370, tableTop)
-           .text('AMOUNT', 450, tableTop);
-
-        doc.moveDown();
+        // Separator line under header
+        doc.moveTo(50, tableTop + 20)
+           .lineTo(550, tableTop + 20)
+           .stroke();
 
         // Items
-        let yPosition = doc.y + 20;
+        let yPosition = tableTop + 40;
         let total = 0;
 
         invoiceData.items.forEach(item => {
-            const itemTotal = item.amount * item.price;
-            total += itemTotal;
+            const amount = item.amount * item.price;
+            total += amount;
 
-            doc.font('Helvetica')
-               .text(item.description, 50, yPosition)
-               .text(`$${item.price.toFixed(2)}`, 280, yPosition)
-               .text(item.amount.toString(), 370, yPosition)
-               .text(`$${itemTotal.toFixed(2)}`, 450, yPosition);
+            doc.text(item.description, 50, yPosition)
+               .text(`$${item.price.toFixed(2)}`, 350, yPosition)
+               .text(item.amount.toString(), 420, yPosition)
+               .text(`$${amount.toFixed(2)}`, 480, yPosition);
 
-            yPosition += 30;
+            // Separator line after each item
+            yPosition += 25;
+            doc.moveTo(50, yPosition)
+               .lineTo(550, yPosition)
+               .stroke();
+            yPosition += 15;
         });
 
         // Total
         doc.moveDown(2)
+           .fontSize(12)
            .font('Helvetica-Bold')
-           .text(`Total Amount: $${total.toFixed(2)}`, { align: 'right' });
+           .text('Total Amount:', 350, yPosition)
+           .text(`$${total.toFixed(2)}`, 480, yPosition);
 
         doc.end();
     });
+}
+
+function calculateTotal(items) {
+    return items.reduce((sum, item) => sum + (item.price * item.amount), 0);
 }
 
 app.post('/generate-invoice', async (req, res) => {
@@ -120,7 +133,7 @@ app.post('/generate-invoice', async (req, res) => {
             return res.status(402).json({ success: false, error: 'Payment required' });
         }
         
-        // Генерируем уникальный хеш для имени файла
+        // Генерируем уникальный хеш
         const hash = require('crypto')
             .createHash('md5')
             .update(`${Date.now()}-${chatId}`)
@@ -129,10 +142,9 @@ app.post('/generate-invoice', async (req, res) => {
         
         const pdfBuffer = await generatePDF(invoiceData);
         
-        // Отправляем файл в чат с уникальным именем
         await bot.sendDocument(chatId, pdfBuffer, {
             filename: `Invoice_${hash}.pdf`,
-            caption: 'Here is your generated invoice!'
+            caption: 'Thank you for your payment! Here is your invoice.'
         });
 
         res.json({ success: true, message: 'Invoice generated and sent successfully' });
