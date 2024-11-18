@@ -83,13 +83,13 @@ app.post('/generate-invoice', async (req, res) => {
     }
 });
 
+// В index.js замените endpoint /create-invoice на:
 app.post('/create-invoice', async (req, res) => {
     try {
         const { chatId } = req.body;
         console.log('Creating invoice for chat ID:', chatId);
         
-        const result = await bot.sendInvoice(
-            chatId,
+        const invoiceLink = await bot.createInvoiceLink(
             'Generate Invoice PDF',
             'Generate a professional PDF invoice with your data',
             `invoice_${Date.now()}`,
@@ -97,7 +97,7 @@ app.post('/create-invoice', async (req, res) => {
             'XTR',
             [{
                 label: 'Invoice Generation',
-                amount: 1
+                amount: 100 // 1 звезда = 100
             }],
             {
                 need_name: false,
@@ -109,26 +109,29 @@ app.post('/create-invoice', async (req, res) => {
             }
         );
 
-        console.log('Invoice sent:', result);
-        res.json({ success: true });
+        console.log('Invoice link created:', invoiceLink);
+        res.json({ success: true, invoice_url: invoiceLink });
     } catch (error) {
         console.error('Error creating invoice:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
-// Webhook endpoint
+// И добавьте более подробное логирование в webhook endpoint:
 app.post(`/webhook/${process.env.TELEGRAM_BOT_TOKEN}`, async (req, res) => {
     try {
-        console.log('Webhook received:', req.body);
+        console.log('Webhook received:', JSON.stringify(req.body, null, 2));
         const { pre_checkout_query, message } = req.body;
         
         if (pre_checkout_query) {
+            console.log('Processing pre-checkout:', pre_checkout_query);
             await bot.answerPreCheckoutQuery(pre_checkout_query.id, true);
+            console.log('Pre-checkout approved');
         }
         
         if (message?.successful_payment) {
-            console.log('Payment successful:', message.successful_payment);
+            console.log('Processing successful payment:', message.successful_payment);
+            // Здесь можно добавить дополнительную логику при успешной оплате
         }
         
         res.sendStatus(200);
