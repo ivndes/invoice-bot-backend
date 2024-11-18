@@ -71,12 +71,30 @@ app.post('/generate-invoice', async (req, res) => {
         }
         
         const pdfBuffer = await generatePDF(invoiceData);
-        await bot.sendDocument(chatId, pdfBuffer, {
+        
+        // Сначала отправляем документ как файл
+        const sentDocument = await bot.sendDocument(chatId, pdfBuffer, {
             filename: 'invoice.pdf',
             caption: 'Here is your generated invoice!'
         });
 
-        res.json({ success: true, message: 'Invoice generated and sent successfully' });
+        // Получаем информацию о файле
+        if (sentDocument && sentDocument.document) {
+            const fileInfo = await bot.getFile(sentDocument.document.file_id);
+            console.log('File info:', fileInfo);
+
+            // Формируем прямую ссылку на файл
+            const fileUrl = `https://api.telegram.org/file/bot${process.env.TELEGRAM_BOT_TOKEN}/${fileInfo.file_path}`;
+            
+            res.json({ 
+                success: true, 
+                message: 'Invoice generated and sent successfully',
+                fileUrl: fileUrl,
+                fileInfo: fileInfo
+            });
+        } else {
+            throw new Error('Failed to get file information');
+        }
     } catch (error) {
         console.error('Error generating invoice:', error);
         res.status(500).json({ success: false, error: error.message });
