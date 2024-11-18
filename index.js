@@ -7,12 +7,10 @@ const TelegramBot = require('node-telegram-bot-api');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Инициализация бота
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { 
     polling: false
 });
 
-// CORS настройки
 app.use(cors({
     origin: 'https://ivndes.github.io',
     methods: ['GET', 'POST'],
@@ -21,87 +19,129 @@ app.use(cors({
 
 app.use(express.json());
 
-// Функция генерации PDF
 async function generatePDF(invoiceData) {
     return new Promise((resolve, reject) => {
-        const doc = new PDFDocument();
-        const chunks = [];
+        const doc = new PDFDocument({
+            size: 'A4',
+            margins: {
+                top: 50,
+                bottom: 50,
+                left: 50,
+                right: 50
+            },
+            info: {
+                Title: 'Invoice',
+                Author: 'Invoice Generator Bot',
+                Creator: '@makeinvoicesbot', // Замените на username вашего бота
+                Producer: 'https://t.me/makeinvoicesbot', // Замените на ссылку на вашего бота
+                Keywords: 'invoice, telegram, bot'
+            }
+        });
 
+        const chunks = [];
         doc.on('data', chunk => chunks.push(chunk));
         doc.on('end', () => resolve(Buffer.concat(chunks)));
 
-        doc.fontSize(25).text('Invoice', { align: 'center' });
-        
+        // Heading
+        doc.fontSize(24)
+           .font('Helvetica-Bold')
+           .text('INVOICE', { align: 'center' });
+
+        doc.moveDown(2);
+
+        // From section
+        doc.fontSize(12)
+           .font('Helvetica')
+           .text('FROM:', { underline: true })
+           .font('Helvetica-Bold')
+           .text(invoiceData.yourInfo.name)
+           .font('Helvetica')
+           .text(invoiceData.yourInfo.email);
+
+        doc.moveDown(2);
+
+        // Bill To section
+        doc.fontSize(12)
+           .font('Helvetica')
+           .text('BILL TO:', { underline: true })
+           .font('Helvetica-Bold')
+           .text(invoiceData.clientInfo.name)
+           .font('Helvetica')
+           .text(invoiceData.clientInfo.email);
+
+        doc.moveDown(2);
+
+        // Current date
+        doc.text(`Issued on: ${new Date().toLocaleDateString()}`, { align: 'right' });
+
         doc.moveDown();
-        doc.fontSize(14)
-           .text('From:', { underline: true })
-           .text(`Name: ${invoiceData.yourInfo.name}`)
-           .text(`Email: ${invoiceData.yourInfo.email}`);
 
-        doc.moveDown()
-           .text('To:', { underline: true })
-           .text(`Name: ${invoiceData.clientInfo.name}`)
-           .text(`Email: ${invoiceData.clientInfo.email}`);
+        // Items table header
+        const tableTop = doc.y + 20;
+        doc.font('Helvetica-Bold')
+           .text('DESCRIPTION', 50, tableTop)
+           .text('RATE', 280, tableTop)
+           .text('QTY', 370, tableTop)
+           .text('AMOUNT', 450, tableTop);
 
-        doc.moveDown()
-           .text('Items:', { underline: true });
-        
+        doc.moveDown();
+
+        // Items
+        let yPosition = doc.y + 20;
         let total = 0;
+
         invoiceData.items.forEach(item => {
-            doc.text(`${item.description}`);
-            doc.text(`   Amount: ${item.amount} × Price: $${item.price} = $${item.total}`, { indent: 20 });
-            total += item.total;
+            const itemTotal = item.amount * item.price;
+            total += itemTotal;
+
+            doc.font('Helvetica')
+               .text(item.description, 50, yPosition)
+               .text(`$${item.price.toFixed(2)}`, 280, yPosition)
+               .text(item.amount.toString(), 370, yPosition)
+               .text(`$${itemTotal.toFixed(2)}`, 450, yPosition);
+
+            yPosition += 30;
         });
 
-        doc.moveDown();
-        doc.fontSize(16).text(`Total: $${total.toFixed(2)}`, { align: 'right' });
+        // Total
+        doc.moveDown(2)
+           .font('Helvetica-Bold')
+           .text(`Total Amount: $${total.toFixed(2)}`, { align: 'right' });
 
         doc.end();
     });
 }
 
-// Основные эндпоинты
 app.post('/generate-invoice', async (req, res) => {
     try {
-        console.log('Generate invoice request:', req.body);
         const { invoiceData, chatId, payment_status } = req.body;
         
         if (payment_status !== 'paid') {
             return res.status(402).json({ success: false, error: 'Payment required' });
         }
         
+        // Генерируем уникальный хеш для имени файла
+        const hash = require('crypto')
+            .createHash('md5')
+            .update(`${Date.now()}-${chatId}`)
+            .digest('hex')
+            .substring(0, 8);
+        
         const pdfBuffer = await generatePDF(invoiceData);
         
-        // Сначала отправляем документ как файл
-        const sentDocument = await bot.sendDocument(chatId, pdfBuffer, {
-            filename: 'invoice.pdf',
+        // Отправляем файл в чат с уникальным именем
+        await bot.sendDocument(chatId, pdfBuffer, {
+            filename: `Invoice_${hash}.pdf`,
             caption: 'Here is your generated invoice!'
         });
 
-        // Получаем информацию о файле
-        if (sentDocument && sentDocument.document) {
-            const fileInfo = await bot.getFile(sentDocument.document.file_id);
-            console.log('File info:', fileInfo);
-
-            // Формируем прямую ссылку на файл
-            const fileUrl = `https://api.telegram.org/file/bot${process.env.TELEGRAM_BOT_TOKEN}/${fileInfo.file_path}`;
-            
-            res.json({ 
-                success: true, 
-                message: 'Invoice generated and sent successfully',
-                fileUrl: fileUrl,
-                fileInfo: fileInfo
-            });
-        } else {
-            throw new Error('Failed to get file information');
-        }
+        res.json({ success: true, message: 'Invoice generated and sent successfully' });
     } catch (error) {
         console.error('Error generating invoice:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
-// В index.js замените endpoint /create-invoice на:
 app.post('/create-invoice', async (req, res) => {
     try {
         const { chatId } = req.body;
@@ -135,7 +175,6 @@ app.post('/create-invoice', async (req, res) => {
     }
 });
 
-// И добавьте более подробное логирование в webhook endpoint:
 app.post(`/webhook/${process.env.TELEGRAM_BOT_TOKEN}`, async (req, res) => {
     try {
         console.log('Webhook received:', JSON.stringify(req.body, null, 2));
@@ -159,12 +198,10 @@ app.post(`/webhook/${process.env.TELEGRAM_BOT_TOKEN}`, async (req, res) => {
     }
 });
 
-// Health check endpoint
 app.get('/', (req, res) => {
     res.json({ status: 'Server is running' });
 });
 
-// Запускаем сервер
 const server = app.listen(port, async () => {
     console.log(`Server running on port ${port}`);
     try {
@@ -177,7 +214,6 @@ const server = app.listen(port, async () => {
     }
 });
 
-// Обработка ошибок
 server.on('error', (error) => {
     console.error('Server error:', error);
     if (error.code === 'EADDRINUSE') {
